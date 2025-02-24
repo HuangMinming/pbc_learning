@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "pbc.h"
 
 /*
@@ -134,7 +135,7 @@ int main(int argc, char *argv[])
     
     uint8_t *hex = "91ce6a92d1ef789811ea830e72c46405df6552539821234dba7ab0069944468699af5653d0003b23f50b480bfc110ddd5044d87117e5ff4802c2de97796326475fe0188960275c360b0ace337af76198d6fc3ce53b9584de176f0f00f240045db76c0d5aa50f3e31ef20bb36c35d9eaeb2d5653d96d447ed325e5109991dd5c6";
     uint8_t  g_b3[256];
-    int hex_le = strlen(hex);
+    int hex_len = strlen(hex);
     HexStrToByteStr(hex, hex_len, g_b3, 256);
     element_t g3;
     element_init_G1(g3, pairing);
