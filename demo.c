@@ -350,8 +350,8 @@ int main(int argc, char *argv[])
 
     element_to_bytes(g_bytes, g);
 
-    printf("export g, pk_len = %d, pk_bytes=\n", g_bytes);
-    for(int i=0;i<g_bytes;i++){
+    printf("export g, pk_len = %d, pk_bytes=\n", g_len);
+    for(int i=0;i<g_len;i++){
         printf("%02x ", g_bytes[i]);
     }
     printf("\n");
