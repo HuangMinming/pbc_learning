@@ -1,10 +1,6 @@
 #include <stdio.h>
 #include "pbc.h"
 
-#define SERV_PORT 6666
-#define MAX_USERID 1024
-#define MAX_FILEID 1024
-#define MAX_MSG 4096
 pairing_t pairing;
 element_t g;
 element_t Z;
@@ -230,7 +226,7 @@ void pairing_destroy()
     pairing_clear(pairing);
 }
 
-int main(int argc, char *argv[])
+int main1(int argc, char *argv[])
 {
 
     pairing_init();
@@ -324,4 +320,40 @@ int main(int argc, char *argv[])
     pairing_destroy();
     return 0;
 
+}
+
+int main(int argc, char *argv[])
+{
+
+    pairing_t pairing;
+    element_t g;
+    element_t Z;
+    char param_str[] = "type a\n"
+                       "q 8780710799663312522437781984754049815806883199414208211028653399266475630880222957078625179422662221423155858769582317459277713367317481324925129998224791\n"
+                       "h 12016012264891146079388821366740534204802954401251311822919615131047207289359704531102844802183906537786776\n"
+                       "r 730750818665451621361119245571504901405976559617\n"
+                       "exp2 159\n"
+                       "exp1 107\n"
+                       "sign1 1\n"
+                       "sign0 1";
+    pbc_param_t par;
+    pbc_param_init_set_str(par, param_str);
+    pairing_init_pbc_param(pairing, par);
+
+    element_init_G1(g, pairing);
+
+    element_random(g);
+
+    int g_len =  element_length_in_bytes(g);
+    
+    uint8_t * g_bytes = (uint8_t *) malloc(g_len);
+
+    element_to_bytes(g_bytes, g);
+
+    printf("export g, pk_len = %d, pk_bytes=\n", g_bytes);
+    for(int i=0;i<g_bytes;i++){
+        printf("%02x ", g_bytes[i]);
+    }
+    printf("\n");
+    return 0;
 }
