@@ -1,325 +1,91 @@
 #include <stdio.h>
 #include "pbc.h"
 
-pairing_t pairing;
-element_t g;
-element_t Z;
-
-
-void pairing_init()
+/*
+[0x23, 0x3A, 0x46, 0x4C, 0x52] ==> “233A464C52”
+const uint8_t * src_buf: input, point to the source
+int src_len: input, indicate the source length, should greater than 0
+uint8_t * dest_buf: output, point to the destination
+int dest_len: input, indicate the destination length, 
+        should be greater or equal than src_len * 2
+*/
+uint32_t ByteStrToHexStr(const uint8_t * src_buf, int src_len, 
+    uint8_t * dest_buf, int dest_len)
 {
+    if(NULL == src_buf || NULL == dest_buf ||
+         src_len <= 0 || dest_len < src_len * 2)
+	{
+        printf("ByteStrToHexStr input error\n");
+        return -1;
+    }	
+    uint8_t highHex, lowHex;
+    const uint8_t * index = src_buf, * end = src_buf + src_len;
+    uint8_t * ridx = dest_buf;
+    
+    while (index < end)
+    {
+        highHex = (* index) >> 4;
+        lowHex = (* index) & 0x0F;
+        index ++;
 
-    // sgx_printf("****start\n");
-    // Initialize pairing
-    char param_str[] = "type a\n"
-                       "q 8780710799663312522437781984754049815806883199414208211028653399266475630880222957078625179422662221423155858769582317459277713367317481324925129998224791\n"
-                       "h 12016012264891146079388821366740534204802954401251311822919615131047207289359704531102844802183906537786776\n"
-                       "r 730750818665451621361119245571504901405976559617\n"
-                       "exp2 159\n"
-                       "exp1 107\n"
-                       "sign1 1\n"
-                       "sign0 1";
-    pbc_param_t par;
-    pbc_param_init_set_str(par, param_str);
-    pairing_init_pbc_param(pairing, par);
-}
+        if (highHex > 0x09)
+            highHex += 0x57;
+        else
+            highHex += 0x30;
 
-void pairing_generate_g_Z()
-{
+        if (lowHex > 0x09)
+            lowHex += 0x57;
+        else
+            lowHex += 0x30;
 
-    // Initialize elements
-    element_init_G1(g, pairing);
-
-    element_random(g);
-
-    element_init_GT(Z, pairing);
-
-    pairing_apply(Z, g, g, pairing); // e(g,g)
-}
-
-int Key_Generation(element_t *ptr_a1, element_t *ptr_a2, element_t *ptr_Z_a1, element_t *ptr_g_a2)
-{
-    element_random(*ptr_a1);
-    element_random(*ptr_a2);
-
-    element_pow_zn(*ptr_Z_a1, Z, *ptr_a1);
-    element_pow_zn(*ptr_g_a2, g, *ptr_a2);
-
-    element_printf("*ptr_a1 = %B\n", *ptr_a1);
-    element_printf("*ptr_a2 = %B\n", *ptr_a2);
-    element_printf("*ptr_Z_a1 = %B\n", *ptr_Z_a1);
-    element_printf("*ptr_g_a2 = %B\n", *ptr_g_a2);
+        *ridx ++ = highHex;
+        *ridx ++ = lowHex;
+    }
     return 0;
 }
 
 /*
-rkA→B = g^a1^b2 ∈ G1
+ “233A464C52” ==>[0x23, 0x3A, 0x46, 0x4C, 0x52]
+const uint8_t * src_buf: input, point to the source
+int src_len: input, indicate the source length, should greater than 0, should be devided by 2
+uint8_t * dest_buf: output, point to the destination
+int dest_len: input, indicate the destination length, 
+        should be greater or equal than src_len / 2
 */
-int Re_Encryption_Key_Generation(element_t *ptr_a1, 
-                                   element_t *ptr_g_b2, 
-                                   element_t *ptr_rk_A_B)
+uint32_t HexStrToByteStr(const uint8_t * src_buf, int src_len, 
+    uint8_t * dest_buf, int dest_len)
 {
-
-    element_pow_zn(*ptr_rk_A_B, *ptr_g_b2,  *ptr_a1);
-
-    element_printf("*ptr_rk_A_B = %B\n", *ptr_rk_A_B);
-    return 0;
-}
-
-int First_Level_Encryption(element_t *ptr_m, 
-                             element_t *ptr_Z_a1, 
-                             element_t *ptr_a2, 
-                             element_t *ptr_Z_a1_k, 
-                             element_t *ptr_m_Z_k, 
-                             element_t *ptr_Z_a2_k)
-{
-    element_t k, Z_k;
-    element_init_Zr(k, pairing);
-    element_init_GT(Z_k, pairing);
-    element_random(k);
-
-
-    element_pow_zn(ptr_Z_a1_k, *ptr_Z_a1, k);
-    element_pow_zn(Z_k, Z, k);
-    element_mul(ptr_m_Z_k, *ptr_m, Z_k);
-
-    element_t Z_a2;
-    element_init_GT(Z_a2, pairing);
+    if(NULL == src_buf || NULL == dest_buf ||
+         src_len <= 0 || 
+         (src_len % 2 != 0) ||
+         (dest_len < src_len / 2)
+         )
+	{
+        printf("HexStrToByteStr input error\n");
+        return -1;
+    }	
+    uint8_t highByte, lowByte;
+	const uint8_t * index = src_buf, * end = src_buf + src_len;
+    uint8_t * ridx = dest_buf;
     
+    while (index < end)
+    {
+        highByte = tolower(* (index ++));
+        lowByte  = tolower(* (index ++));
 
-    element_pow_zn(Z_a2, Z, *ptr_a2);
-    element_pow_zn(*ptr_Z_a2_k, Z_a2, k);
+        if (highByte > 0x39)
+            highByte -= 0x57;
+        else
+            highByte -= 0x30;
 
-    element_printf("*ptr_Z_a1_k = %B\n", *ptr_Z_a1_k);
-    element_printf("*ptr_m_Z_k = %B\n", *ptr_m_Z_k);
-    element_printf("*ptr_Z_a2_k = %B\n", *ptr_Z_a2_k);
+        if (lowByte > 0x39)
+            lowByte -= 0x57;
+        else
+            lowByte -= 0x30;
 
-    element_clear(k);
-    element_clear(Z_k);
-    element_clear(Z_a2);
+        *ridx ++ = (highByte << 4) | lowByte;
+    }
     return 0;
-}
-
-int Second_Level_Encryption(element_t *ptr_m,
-                 element_t *ptr_Z_a1,
-                 element_t *ptr_g_k,
-                 element_t *ptr_m_Z_a1_k)
-{
-    element_t k, Z_a1_k;
-    element_init_Zr(k, pairing);
-    element_init_GT(Z_a1_k, pairing);
-    element_random(k);
-
-    element_pow_zn(*ptr_g_k, g, k);
-    element_pow_zn(Z_a1_k, *ptr_Z_a1, k);
-    element_mul(*ptr_m_Z_a1_k, *ptr_m, Z_a1_k);
-
-    element_printf("*ptr_g_k = %B\n", *ptr_g_k);
-    element_printf("*ptr_m_Z_a1_k = %B\n", *ptr_m_Z_a1_k);
-
-    element_clear(k);
-    element_clear(Z_a1_k);
-    return 0;
-}
-
-
-int First_Level_Decryption(element_t *ptr_Z_a1_k,
-                             element_t *ptr_m_Z_k, 
-                             element_t *ptr_Z_a2_k, 
-                             element_t *ptr_a1, 
-                             element_t *ptr_a2)
-{
-
-    element_t a1_invert, a2_invert, alpha_a1_invert, alpha_a2_invert;
-    element_t beta_alpha_a1_invert, beta_alpha_a2_invert;
-
-    
-
-    element_init_Zr(a1_invert, pairing);
-    element_init_Zr(a2_invert, pairing);
-    element_init_GT(alpha_a1_invert, pairing);
-    element_init_GT(alpha_a2_invert, pairing);
-    element_init_GT(beta_alpha_a1_invert, pairing);
-    element_init_GT(beta_alpha_a2_invert, pairing);
-
-    element_invert(a1_invert, *ptr_a1);
-    element_invert(a2_invert, *ptr_a2);
-
-    element_pow_zn(alpha_a1_invert, *ptr_Z_a1_k, a1_invert);
-    element_pow_zn(alpha_a2_invert, *ptr_Z_a2_k, a2_invert);
-
-    element_div(beta_alpha_a1_invert, *ptr_m_Z_k, alpha_a1_invert);
-    element_div(beta_alpha_a2_invert, *ptr_m_Z_k, alpha_a2_invert);
-
-    element_printf("beta_alpha_a1_invert = %B\n", beta_alpha_a1_invert);
-    element_printf("beta_alpha_a2_invert = %B\n", beta_alpha_a2_invert);
-
-    element_clear(a1_invert);
-    element_clear(a2_invert);
-    element_clear(alpha_a1_invert);
-    element_clear(alpha_a2_invert);
-    element_clear(beta_alpha_a1_invert);
-    element_clear(beta_alpha_a2_invert);
-
-    return 0;
-}
-
-int Second_Level_Decryption(element_t *ptr_g_k, 
-                              element_t *ptr_m_Z_a1_k, 
-                              element_t *ptr_a1)
-{
-
-    element_t pair_alpha_g, pair_alpha_g_a1, beta_pair_alpha_g_a1;
-
-    
-
-    element_init_GT(pair_alpha_g, pairing);
-    element_init_GT(pair_alpha_g_a1, pairing);
-    element_init_GT(beta_pair_alpha_g_a1, pairing);
-
-    pairing_apply(pair_alpha_g, *ptr_g_k, g, pairing);
-    element_pow_zn(pair_alpha_g_a1, pair_alpha_g, *ptr_a1);
-    element_div(beta_pair_alpha_g_a1, *ptr_m_Z_a1_k, pair_alpha_g_a1);
-
-
-    element_printf("beta_pair_alpha_g_a1 = %B\n", beta_pair_alpha_g_a1);
-
-    element_clear(pair_alpha_g);
-    element_clear(pair_alpha_g_a1);
-    element_clear(beta_pair_alpha_g_a1);
-
-    return 0;
-}
-
-int B_Decryption(
-    element_t *ptr_m_Z_a1_k, 
-    element_t *ptr_Z_b2_a1_k, 
-    element_t *ptr_b2) 
-{
-
-
-    element_t b2_invert, alpha_b2_invert, beta_alpha_b2_invert;
-
-    
-
-    element_init_Zr(b2_invert, pairing);
-    element_init_GT(alpha_b2_invert, pairing);
-    element_init_GT(beta_alpha_b2_invert, pairing);
-
-    element_invert(b2_invert, *ptr_b2);
-    element_pow_zn(alpha_b2_invert, *ptr_Z_b2_a1_k, b2_invert);
-    element_div(beta_alpha_b2_invert, *ptr_m_Z_a1_k, alpha_b2_invert);
-
-    element_printf("beta_alpha_b2_invert = %B\n", beta_alpha_b2_invert);
-    element_clear(b2_invert);
-    element_clear(alpha_b2_invert);
-    element_clear(beta_alpha_b2_invert);
-    
-    return 0;
-
-}
-
-void pairing_destroy()
-{
-    element_clear(g);
-    element_clear(Z);
-    pairing_clear(pairing);
-}
-
-int main1(int argc, char *argv[])
-{
-
-    pairing_init();
-    pairing_generate_g_Z();
-    
-
-    element_t a1, a2, Z_a1, g_a2;
-    element_init_Zr(a1, pairing);
-    element_init_Zr(a2, pairing);
-    element_init_GT(Z_a1, pairing);
-    element_init_G1(g_a2, pairing);
-    Key_Generation(&a1, &a2, &Z_a1, &g_a2);
-
-    element_printf("a1 = %B\n", a1);
-    element_printf("a2 = %B\n", a2);
-    element_printf("Z_a1 = %B\n", Z_a1);
-    element_printf("g_a2 = %B\n", g_a2);
-
-    element_t b1, b2, Z_b1, g_b2;
-    element_init_Zr(b1, pairing);
-    element_init_Zr(b2, pairing);
-    element_init_GT(Z_b1, pairing);
-    element_init_G1(g_b2, pairing);
-    Key_Generation(&b1, &b2, &Z_b1, &g_b2);
-
-    element_printf("b1 = %B\n", b1);
-    element_printf("b2 = %B\n", b2);
-    element_printf("Z_b1 = %B\n", Z_b1);
-    element_printf("g_b2 = %B\n", g_b2);
-
-    element_t rk_A_B;
-    element_init_G1(rk_A_B, pairing);
-    Re_Encryption_Key_Generation(&a1, &g_b2, &rk_A_B);
-    element_printf("rk_A_B = %B\n", rk_A_B);
-
-
-    element_t m;
-    element_init_GT(m, pairing);
-    element_random(m);
-    element_printf("m = %B\n", m);
-
-
-    element_t Z_a1_k, m_Z_k, Z_a2_k;
-    element_init_GT(Z_a1_k, pairing);
-    element_init_GT(m_Z_k, pairing);
-    element_init_GT(Z_a2_k, pairing);
-
-    First_Level_Encryption(&m, &Z_a1, &a2, &Z_a1_k, &m_Z_k, &Z_a2_k);
-
-    element_printf("Z_a1_k = %B\n", Z_a1_k);
-    element_printf("m_Z_k = %B\n", m_Z_k);
-    element_printf("Z_a2_k = %B\n", Z_a2_k);
-
-    element_t g_k, m_Z_a1_k;
-
-    element_init_G1(g_k, pairing);
-    element_init_GT(m_Z_a1_k, pairing);
-
-    Second_Level_Encryption(&m, &Z_a1, &g_k, &m_Z_a1_k);
-    element_printf("g_k = %B\n", g_k);
-    element_printf("m_Z_a1_k = %B\n", m_Z_a1_k);
-
-    element_t  Z_b2_a1_k;
-    element_init_GT(Z_b2_a1_k, pairing);
-    pairing_apply(Z_b2_a1_k, g_k, rk_A_B, pairing);
-
-    element_printf("Z_b2_a1_k = %B\n", Z_b2_a1_k);
-
-
-    First_Level_Decryption(&Z_a1_k, &m_Z_k, &Z_a2_k, &a1, &a2);
-
-    Second_Level_Decryption(&g_k, &m_Z_a1_k, &a1);
-
-    B_Decryption(&m_Z_a1_k, &Z_b2_a1_k, &b2);
-    element_clear(a1);
-    element_clear(a2);
-    element_clear(Z_a1);
-    element_clear(g_a2);
-    element_clear(b1);
-    element_clear(b2);
-    element_clear(Z_b1);
-    element_clear(g_b2);
-    element_clear(rk_A_B);
-    element_clear(m);
-    element_clear(Z_a1_k);
-    element_clear(m_Z_k);
-    element_clear(Z_a2_k);
-    element_clear(g_k);
-    element_clear(m_Z_a1_k);
-    element_clear(Z_b2_a1_k);
-    pairing_destroy();
-    return 0;
-
 }
 
 int main(int argc, char *argv[])
@@ -365,5 +131,14 @@ int main(int argc, char *argv[])
     element_init_G1(gg, pairing);
     element_from_bytes(gg, (uint8_t *)g_b2);
     element_printf("gg = %B\n", gg);
+    
+    uint8_t *hex = "91ce6a92d1ef789811ea830e72c46405df6552539821234dba7ab0069944468699af5653d0003b23f50b480bfc110ddd5044d87117e5ff4802c2de97796326475fe0188960275c360b0ace337af76198d6fc3ce53b9584de176f0f00f240045db76c0d5aa50f3e31ef20bb36c35d9eaeb2d5653d96d447ed325e5109991dd5c6";
+    uint8_t  g_b3[256];
+    int hex_le = strlen(hex);
+    HexStrToByteStr(hex, hex_len, g_b3, 256);
+    element_t g3;
+    element_init_G1(g3, pairing);
+    element_from_bytes(g3, (uint8_t *)g_b3);
+    element_printf("g3 = %B\n", g3);
     return 0;
 }
