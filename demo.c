@@ -344,6 +344,8 @@ int main(int argc, char *argv[])
 
     element_random(g);
 
+    element_printf("g = %B\n", g);
+
     int g_len =  element_length_in_bytes(g);
     
     uint8_t * g_bytes = (uint8_t *) malloc(g_len);
